@@ -1,0 +1,1 @@
+Boton elminar(mensaje de advertencia)(ElMendez), perfiles en base de datos(Jhoan), meter reportes en dashBoard, Ajustar codigo MVC ejemplo contoller "Inventario" (Entre todos) , modelo de datos(Stiwar) 
