@@ -1,27 +1,32 @@
-# Modelo de datos Producto
-# define la estructura y validaciones basicas
+# models/producto.py
+# Modelo de datos Producto — Versión 2.0 (con categoria_id y activo)
+
 class Producto:
     def __init__(self, id=None, nombre="", precio=0.0, cantidad=0,
-                 codigo="", marca="", detalles=""):
-        self.id       = id
-        self.nombre   = nombre
-        self.precio   = precio
-        self.cantidad = cantidad
-        self.codigo   = codigo
-        self.marca    = marca
-        self.detalles = detalles
+                 codigo="", marca="", detalles="", categoria_id=None, activo=1):
+        self.id           = id
+        self.nombre       = nombre
+        self.precio       = precio
+        self.cantidad     = cantidad
+        self.codigo       = codigo
+        self.marca        = marca
+        self.detalles     = detalles
+        self.categoria_id = categoria_id
+        self.activo       = activo
 
     @classmethod
     def desde_row(cls, row):
         """Construye un Producto desde un sqlite3.Row."""
         return cls(
-            id=row["id"],
-            nombre=row["nombre"],
-            precio=row["precio"],
-            cantidad=row["cantidad"],
-            codigo=row["codigo"]   or "",
-            marca=row["marca"]     or "",
-            detalles=row["detalles"] or "",
+            id           = row["id"],
+            nombre       = row["nombre"],
+            precio       = row["precio"],
+            cantidad     = row["cantidad"],
+            codigo       = row["codigo"]    or "",
+            marca        = row["marca"]     or "",
+            detalles     = row["detalles"]  or "",
+            categoria_id = row["categoria_id"] if "categoria_id" in row.keys() else None,
+            activo       = row["activo"]    if "activo" in row.keys() else 1,
         )
 
     def validar(self):
@@ -44,6 +49,7 @@ class Producto:
 
     def __repr__(self):
         return f"<Producto id={self.id} nombre={self.nombre!r}>"
-
-
-
+    
+    
+    
+    

@@ -247,7 +247,7 @@ class FacturacionView(tk.Frame):
             tv.insert("", "end", values=(
                 d["nombre"], d["cantidad"],
                 formato_moneda(d["precio_unitario"]),
-                formato_moneda(d["total"])))
+                formato_moneda(d["subtotal"])))
         tv.pack(padx=20, pady=10)
         tk.Button(win, text="Cerrar", command=win.destroy,
                   bg=COLORES["acento"], fg="white", relief="flat",
@@ -272,7 +272,5 @@ class FacturacionView(tk.Frame):
         self.tv_hist.delete(*self.tv_hist.get_children())
         for f in self.ctrl.listar_facturas():
             self.tv_hist.insert("", "end", iid=str(f["id"]),
-                                values=(f["id"], f["fecha"],
-                                        f["cliente"],
-                                        formato_moneda(f["total"])))
+                                values=(f["id"], f["fecha"],f["cliente_nombre"],formato_moneda(f["total"])))
 

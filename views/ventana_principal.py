@@ -114,6 +114,8 @@ class VentanaPrincipal(tk.Tk):
         self._frame_actual = frame
 
     def _crear_modulo(self, modulo: str) -> tk.Frame:
+        uid = self.usuario["id"]
+        
         if modulo == "dashboard":
             from views.dashboard_view import DashboardView
             return DashboardView(self.contenido, self)
@@ -121,12 +123,12 @@ class VentanaPrincipal(tk.Tk):
         if modulo == "inventario":
             from views.inventario_view import InventarioView
             from controllers.inventario_controller import InventarioController
-            return InventarioView(self.contenido, InventarioController())
+            return InventarioView(self.contenido, InventarioController(usuario_id=uid))
 
         if modulo == "facturacion":
             from views.facturacion_view import FacturacionView
             from controllers.facturacion_controller import FacturacionController
-            return FacturacionView(self.contenido, FacturacionController())
+            return FacturacionView(self.contenido, FacturacionController(usuario_id=uid))
 
         if modulo == "reportes":
             from views.reportes_view import ReportesView
