@@ -216,3 +216,4 @@ class InventarioView(tk.Frame):
         else:
             ent.delete(0, "end")
             ent.insert(0, value)
+
