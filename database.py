@@ -1,6 +1,7 @@
 # database.py
 # Maneja toda la conexión a SQLite y las operaciones SQL.
 # Versión 2.0 — Modelo de datos profesional y escalable
+# Versión 3.0 — Se agrega: ORM, Auditoría, Roles en BD, Registro de Clientes
 
 import sqlite3
 import os
@@ -162,6 +163,41 @@ def inicializar_db():
 
 
     -- ══════════════════════════════════════════════
+    --  AUDITORÍA — Tarea 2
+    --  Historial de acciones del sistema
+    -- ══════════════════════════════════════════════
+    CREATE TABLE IF NOT EXISTS auditoria (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha          TEXT    NOT NULL DEFAULT (datetime('now')),
+        usuario_id     INTEGER,
+        usuario_nombre TEXT,
+        accion         TEXT    NOT NULL,
+        tabla          TEXT    NOT NULL,
+        registro_id    INTEGER,
+        detalle        TEXT
+    );
+
+    -- ══════════════════════════════════════════════
+    --  ROLES Y PERMISOS — Tarea 3
+    --  Define qué puede hacer cada rol
+    -- ══════════════════════════════════════════════
+    CREATE TABLE IF NOT EXISTS roles (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        nombre      TEXT    NOT NULL UNIQUE,
+        descripcion TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS permisos (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        rol_id          INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+        modulo          TEXT    NOT NULL,
+        puede_ver       INTEGER NOT NULL DEFAULT 1 CHECK(puede_ver IN (0,1)),
+        puede_crear     INTEGER NOT NULL DEFAULT 0 CHECK(puede_crear IN (0,1)),
+        puede_editar    INTEGER NOT NULL DEFAULT 0 CHECK(puede_editar IN (0,1)),
+        puede_eliminar  INTEGER NOT NULL DEFAULT 0 CHECK(puede_eliminar IN (0,1))
+    );
+
+    -- ══════════════════════════════════════════════
     --  ÍNDICES
     -- ══════════════════════════════════════════════
     CREATE INDEX IF NOT EXISTS idx_productos_nombre     ON productos(nombre);
@@ -253,6 +289,38 @@ def inicializar_db():
         "INSERT OR IGNORE INTO clientes (nombre, identificacion) VALUES (?,?)",
         ("Cliente General", "0000000000"),
     )
+
+    # ── Roles base (Tarea 3: Roles en BD) ─────────────────────────────────────
+    cur.execute("INSERT OR IGNORE INTO roles (nombre, descripcion) VALUES (?,?)",
+                ("admin", "Acceso total al sistema"))
+    cur.execute("INSERT OR IGNORE INTO roles (nombre, descripcion) VALUES (?,?)",
+                ("vendedor", "Solo puede ver y vender, no administrar"))
+
+    # Permisos del admin: todo permitido
+    admin_id = cur.execute("SELECT id FROM roles WHERE nombre='admin'").fetchone()[0]
+    vendedor_id = cur.execute("SELECT id FROM roles WHERE nombre='vendedor'").fetchone()[0]
+
+    modulos_todos = ["inventario", "facturacion", "reportes", "usuarios", "clientes", "auditoria"]
+    for mod in modulos_todos:
+        cur.execute(
+            "INSERT OR IGNORE INTO permisos (rol_id, modulo, puede_ver, puede_crear, puede_editar, puede_eliminar) VALUES (?,?,1,1,1,1)",
+            (admin_id, mod)
+        )
+
+    # Permisos del vendedor: solo ver e inventario/facturacion/clientes
+    modulos_vendedor = {
+        "inventario":   (1, 0, 0, 0),
+        "facturacion":  (1, 1, 0, 0),
+        "reportes":     (1, 0, 0, 0),
+        "clientes":     (1, 1, 1, 0),
+        "usuarios":     (0, 0, 0, 0),
+        "auditoria":    (0, 0, 0, 0),
+    }
+    for mod, (ver, crear, editar, eliminar) in modulos_vendedor.items():
+        cur.execute(
+            "INSERT OR IGNORE INTO permisos (rol_id, modulo, puede_ver, puede_crear, puede_editar, puede_eliminar) VALUES (?,?,?,?,?,?)",
+            (vendedor_id, mod, ver, crear, editar, eliminar)
+        )
 
     conn.commit()
     conn.close()
@@ -354,8 +422,8 @@ def obtener_clientes(filtro: str = ""):
         conn = get_connection()
         q = f"%{filtro}%"
         rows = conn.execute(
-            "SELECT * FROM clientes WHERE nombre LIKE ? OR identificacion LIKE ? ORDER BY nombre",
-            (q, q),
+            "SELECT * FROM clientes WHERE nombre LIKE ? OR identificacion LIKE ? OR CAST(id AS TEXT) LIKE ? ORDER BY nombre",
+            (q, q, q),
         ).fetchall()
         conn.close()
         return rows
@@ -901,4 +969,65 @@ def reporte_ventas_por_cliente():
     except sqlite3.Error as e:
         print(f"[DB] reporte_ventas_por_cliente: {e}")
         return []
-    
+
+
+# ══════════════════════════════════════════════════════════════════
+#  ROLES Y PERMISOS — Tarea 3: Roles en BD
+# ══════════════════════════════════════════════════════════════════
+
+def obtener_roles():
+    """Devuelve todos los roles disponibles en el sistema."""
+    try:
+        conn = get_connection()
+        rows = conn.execute("SELECT * FROM roles ORDER BY nombre").fetchall()
+        conn.close()
+        return rows
+    except sqlite3.Error as e:
+        print(f"[DB] obtener_roles: {e}")
+        return []
+
+
+def obtener_permisos_de_rol(rol_nombre: str):
+    """
+    Devuelve los permisos de un rol por su nombre.
+    Ejemplo: obtener_permisos_de_rol('vendedor')
+    """
+    try:
+        conn = get_connection()
+        rows = conn.execute(
+            """SELECT p.* FROM permisos p
+               JOIN roles r ON r.id = p.rol_id
+               WHERE r.nombre = ?""",
+            (rol_nombre,)
+        ).fetchall()
+        conn.close()
+        # Convertir a diccionario {modulo: {puede_ver, puede_crear, ...}}
+        resultado = {}
+        for r in rows:
+            resultado[r["modulo"]] = {
+                "puede_ver":      bool(r["puede_ver"]),
+                "puede_crear":    bool(r["puede_crear"]),
+                "puede_editar":   bool(r["puede_editar"]),
+                "puede_eliminar": bool(r["puede_eliminar"]),
+            }
+        return resultado
+    except sqlite3.Error as e:
+        print(f"[DB] obtener_permisos_de_rol: {e}")
+        return {}
+
+
+def rol_puede(rol_nombre: str, modulo: str, accion: str) -> bool:
+    """
+    Verifica si un rol puede realizar una acción en un módulo.
+
+    Uso:
+        if db.rol_puede("vendedor", "usuarios", "puede_eliminar"):
+            ...  # tiene permiso
+        else:
+            ...  # no tiene permiso
+
+    accion puede ser: 'puede_ver', 'puede_crear', 'puede_editar', 'puede_eliminar'
+    """
+    permisos = obtener_permisos_de_rol(rol_nombre)
+    modulo_permisos = permisos.get(modulo, {})
+    return modulo_permisos.get(accion, False)

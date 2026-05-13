@@ -63,6 +63,13 @@ class LoginView(tk.Tk):
             return
         row = db.autenticar_usuario(usuario, password)
         if row:
+            # AUDITORÍA: registrar inicio de sesión
+            import auditoria
+            auditoria.registrar(
+                row["id"], row["usuario"],
+                "LOGIN", "usuarios", row["id"],
+                f"Inicio de sesión exitoso"
+            )
             self.destroy()
             from views.ventana_principal import VentanaPrincipal
             VentanaPrincipal(row).mainloop()

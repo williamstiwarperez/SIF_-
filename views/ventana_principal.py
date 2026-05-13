@@ -67,8 +67,9 @@ class VentanaPrincipal(tk.Tk):
             ("🏠  Dashboard",   "dashboard"),
             ("📦  Inventario",  "inventario"),
             ("🧾  Facturación", "facturacion"),
-            ("📊  Reportes",    "reportes"),
-            ("👥  Usuarios",    "usuarios"),
+            ("👥  Clientes",    "clientes"),
+            ("📋  Auditoría",   "auditoria"),
+            ("⚙️  Usuarios",    "usuarios"),
         ]
 
         for texto, clave in items_nav:
@@ -114,8 +115,9 @@ class VentanaPrincipal(tk.Tk):
         self._frame_actual = frame
 
     def _crear_modulo(self, modulo: str) -> tk.Frame:
-        uid = self.usuario["id"]
-        
+        uid  = self.usuario["id"]
+        rol  = self.usuario["rol"]
+
         if modulo == "dashboard":
             from views.dashboard_view import DashboardView
             return DashboardView(self.contenido, self)
@@ -130,13 +132,28 @@ class VentanaPrincipal(tk.Tk):
             from controllers.facturacion_controller import FacturacionController
             return FacturacionView(self.contenido, FacturacionController(usuario_id=uid))
 
+        # ── NUEVO: Módulo Clientes ─────────────────────────────────────────────
+        if modulo == "clientes":
+            from views.clientes_view import ClientesView
+            return ClientesView(self.contenido, usuario=self.usuario)
+
         if modulo == "reportes":
             from views.reportes_view import ReportesView
             return ReportesView(self.contenido)
 
+        # ── NUEVO: Módulo Auditoría (solo admin) ──────────────────────────────
+        if modulo == "auditoria":
+            if rol != "admin":
+                messagebox.showwarning("Acceso denegado",
+                                       "Solo el administrador puede ver la auditoría.")
+                return self._crear_modulo("dashboard")
+            from views.auditoria_view import AuditoriaView
+            return AuditoriaView(self.contenido)
+
         if modulo == "usuarios":
-            if self.usuario["rol"] != "admin":
-                messagebox.showwarning("Acceso denegado", "Solo el administrador puede gestionar usuarios.")
+            if rol != "admin":
+                messagebox.showwarning("Acceso denegado",
+                                       "Solo el administrador puede gestionar usuarios.")
                 return self._crear_modulo("dashboard")
             from views.usuarios_view import UsuariosView
             return UsuariosView(self.contenido)
@@ -150,7 +167,3 @@ class VentanaPrincipal(tk.Tk):
             self.destroy()
             from views.login_view import LoginView
             LoginView().mainloop()
-            
-
-
-
